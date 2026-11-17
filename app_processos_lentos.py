@@ -195,7 +195,10 @@ def extrair_e_transformar(api_key, classes_escolhidas, paginas, tamanho):
 
 def ler_csv(arquivo):
     """Lê o CSV gerado pela pipeline (dataset_ml_processos_tjsp.csv)."""
-    df = pd.read_csv(arquivo, encoding="utf-8-sig", dtype={"municipio_ibge": str})
+    # id_processo (número CNJ, 20 dígitos) é lido como texto: como número ele passa do
+    # limite de inteiros de 64 bits e quebra a exibição da tabela (OverflowError no pyarrow)
+    df = pd.read_csv(arquivo, encoding="utf-8-sig",
+                     dtype={"id_processo": str, "municipio_ibge": str})
     for col in ["data_ajuizamento", "data_baixa"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
@@ -392,7 +395,11 @@ with abas[0]:
             st.code("\n".join(st.session_state["log"]))
 
     st.subheader("Dataset de Machine Learning")
-    st.dataframe(df, use_container_width=True, height=350)
+    # colunas de texto convertidas para str por segurança na exibição
+    df_exibir = df.copy()
+    for col in df_exibir.select_dtypes(include="object").columns:
+        df_exibir[col] = df_exibir[col].astype(str)
+    st.dataframe(df_exibir, use_container_width=True, height=350)
     st.download_button("⬇️ Baixar CSV (dataset_ml_processos_tjsp.csv)",
                        df.to_csv(index=False).encode("utf-8-sig"),
                        file_name="dataset_ml_processos_tjsp.csv", mime="text/csv")
